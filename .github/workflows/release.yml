@@ -6,6 +6,9 @@ on:
     tags:
       - 'v*' # Запуск при пуше тега, например v1.0.0
 
+permissions:
+  contents: write
+
 jobs:
   create-release:
     runs-on: ubuntu-latest
@@ -42,6 +45,19 @@ jobs:
             echo "LINK=${{ github.server_url }}/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> $GITHUB_OUTPUT
           fi
 
+      - name: Ensure tag exists
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          TAG="v${{ steps.get_version.outputs.VERSION }}"
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG does not exist. Creating it..."
+            git tag $TAG
+            git push origin $TAG
+          else
+            echo "Tag $TAG already exists."
+          fi
+
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -54,6 +70,7 @@ jobs:
             
             **Full Changelog**: ${{ steps.get_comparison.outputs.LINK }}
           draft: true
+          generate_release_notes: true
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
