@@ -1,0 +1,55 @@
+# --- Frontend (Node/Vite/Pnpm) ---
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- Backend (Rust/Cargo) ---
+# Игнорируем папку сборки Rust. Если этого не сделать,
+# репозиторий будет весить гигабайты из-за артефактов компиляции.
+target
+src-tauri/target
+
+# --- Tauri Specific ---
+# Игнорируем автоматически генерируемые иконки (если нужно)
+# src-tauri/icons/*.ico
+# src-tauri/icons/*.icns
+
+# Временные файлы сборки Tauri
+src-tauri/gen
+
+# --- IDEs & Editors ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.diff
+*.patch
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Backup/Temporary ---
+*.bak
+*.tmp
+*.temp
