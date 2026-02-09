@@ -15,7 +15,6 @@ jobs:
     outputs:
       release_id: ${{ steps.create_release.outputs.id }}
       version: ${{ steps.get_version.outputs.VERSION }}
-      comparison_link: ${{ steps.get_comparison.outputs.LINK }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,24 +25,6 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Generate Comparison Link
-        id: get_comparison
-        run: |
-          # Пытаемся получить последний тег перед текущим
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          CURRENT_TAG=${{ github.ref_name }}
-          
-          # Если запуск ручной и тега нет, используем версию из package.json
-          if [ -z "$CURRENT_TAG" ] || [ "$CURRENT_TAG" == "main" ]; then
-            CURRENT_TAG="v${{ steps.get_version.outputs.VERSION }}"
-          fi
-
-          if [ -z "$PREV_TAG" ]; then
-            echo "LINK=First release (no previous version to compare)." >> $GITHUB_OUTPUT
-          else
-            echo "LINK=${{ github.server_url }}/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> $GITHUB_OUTPUT
-          fi
 
       - name: Ensure tag exists
         run: |
@@ -67,8 +48,6 @@ jobs:
           body: |
             ## What's Changed
             🚀 New version of ChronoGlass is ready!
-            
-            **Full Changelog**: ${{ steps.get_comparison.outputs.LINK }}
           draft: true
           generate_release_notes: true
           prerelease: false
