@@ -1,47 +1,45 @@
 # 🕰️ ChronoGlass
 
-### *Vision Pro Style Time Tracker*
+### *Vision Pro Inspired Time Tracker*
 
-<div align="center">
-<img src="banner.jpg"/>
-</div>
+<p align="center">
+  <img src="banner.jpg" alt="ChronoGlass Banner" width="100%">
+</p>
 
-**ChronoGlass** — это высокотехнологичный трекер времени, вдохновленный эстетикой Apple Vision Pro. Приложение сочетает
-в себе эффектный «стеклянный» интерфейс (Glassmorphism) и мощный движок на Rust для контроля рабочего времени, расчета
-переработок и глубокого анализа продуктивности.
+**ChronoGlass** is a high-fidelity time-tracking application inspired by the Apple Vision Pro aesthetic. It combines a stunning **Glassmorphism** interface with a high-performance **Rust** engine to provide seamless work-hour monitoring, overtime calculation, and deep productivity analytics.
 
 ---
 
-## ✨ Основные возможности
+## ✨ Key Features
 
-* 💎 **Glassmorphism UI**: Прозрачный интерфейс с адаптивным размытием.
-* 📊 **Баланс переработок**: Автоматический расчет «овертаймов» относительно недельной цели.
-* ⏱️ **Активные задачи**: Логирование конкретных задач внутри рабочих сессий.
-* 🚀 **Встроенный REST API**: Управляйте данными через внешние скрипты.
-* ⚡ **Tauri v2 Core**: Написано на Rust — работает быстрее, чем любые аналоги на Electron.
+* 💎 **Glassmorphism UI**: A translucent, frosted-glass interface with adaptive blurring and sleek animations.
+* 📊 **Overtime Balance**: Automatic calculation of "Time Debt/Credit" based on your weekly targets.
+* ⏱️ **Activity Logging**: Track specific tasks within your work sessions for granular reporting.
+* 🚀 **Built-in REST API**: Control your data, start timers, or trigger updates via external scripts.
+* ⚡ **Tauri v2 Core**: Built with Rust for native performance, minimal RAM usage, and maximum security.
 
 ---
 
-## 🛠 Установка и запуск
+## 🛠 Setup & Installation
 
-### Предварительные требования
+### Prerequisites
 
-У вас должен быть установлен [Rust](https://www.rust-lang.org/) и [pnpm](https://pnpm.io/).
+Ensure you have [Rust](https://www.rust-lang.org/) and [pnpm](https://pnpm.io/) installed.
 
-### Разработка
+### Development
 
-1. Установите зависимости:
+1. Install dependencies:
    ```bash
    pnpm install
    ```
-2. Запустите в режиме разработки (Vite + Tauri Dev):
+2. Run in development mode (Vite + Tauri Dev):
    ```bash
    pnpm dev
    ```
 
-### Сборка (Production)
+### Production Build
 
-Создать установщик для вашей ОС:
+Generate a platform-specific installer (exe, dmg, or deb):
 
 ```bash
 pnpm tauri build
@@ -49,58 +47,62 @@ pnpm tauri build
 
 ---
 
-## 📦 Структуры данных (JSON Models)
+## 📦 Data Structures (JSON Models)
 
-Для взаимодействия с API через `POST` запросы вам нужно соблюдать строгую структуру объектов.
+Integrate with the API using these strictly typed objects.
 
 <details>
-<summary>🟦 <b>WorkSession</b> (Объект одной сессии)</summary>
+<summary>🟦 <b>WorkSession</b> (Single Session Object)</summary>
 
-Это основная единица данных.
+The primary unit of data.
 
-- `id` (string): Уникальный UUID сессии.
-- `startTime` (number): Timestamp начала в миллисекундах.
-- `endTime` (number | null): Timestamp конца или `null`, если сессия ещё идет.
-- `date` (string): Дата в формате `YYYY-MM-DD`.
-- `subActivities` (Array): Список под-задач (см. ниже).
+- `id` (string): Unique UUID for the session.
+- `startTime` (number): Start timestamp in milliseconds.
+- `endTime` (number | null): End timestamp or `null` if the session is currently active.
+- `date` (string): Date in `YYYY-MM-DD` format.
+- `subActivities` (Array): List of tasks performed during this session (see below).
 
 </details>
 
 <details>
-<summary>🟧 <b>SubActivity</b> (Под-задачи внутри сессии)</summary>
+<summary>🟧 <b>SubActivity</b> (Nested Task)</summary>
 
-Вложенные задачи внутри рабочей сессии.
+Specific activities logged within a WorkSession.
 
-- `id` (string): Уникальный UUID задачи.
-- `title` (string): Название того, чем вы занимались.
-- `startTime` (number): Timestamp начала.
-- `endTime` (number | null): Timestamp конца.
-
-</details>
-
-<details>
-<summary>⚙️ <b>AppSettings</b> (Настройки)</summary>
-
-- `weeklyHoursTarget` (number): Ваша цель (например, `40`).
-- `userName` (string): Имя пользователя.
+- `id` (string): Unique UUID for the task.
+- `title` (string): Descriptive name of the activity.
+- `startTime` (number): Task start timestamp.
+- `endTime` (number | null): Task end timestamp.
 
 </details>
 
 <details>
-<summary>📁 <b>AppData</b> (Корневой объект базы данных)</summary>
+<summary>⚙️ <b>AppSettings</b> (Global Config)</summary>
 
-Именно этот объект используется в `/data/overwrite`.
+- `weeklyHoursTarget` (number): Your weekly goal (e.g., `40`).
+- `userName` (string): The user's display name.
+
+</details>
+
+<details>
+<summary>📁 <b>AppData</b> (Root Database Object)</summary>
+
+This is the object structure used for full data overwrites.
 
 ```json
 {
   "sessions": [
     {
-      "WorkSession"
-    },
-    ...
+      "id": "uuid",
+      "startTime": 1700000000000,
+      "endTime": 1700003600000,
+      "date": "2024-03-20",
+      "subActivities": []
+    }
   ],
   "settings": {
-    "AppSettings"
+    "weeklyHoursTarget": 40,
+    "userName": "Arthur"
   }
 }
 ```
@@ -109,87 +111,78 @@ pnpm tauri build
 
 ---
 
-## 🔌 Документация ChronoGlass API
+## 🔌 ChronoGlass API Documentation
 
-Сервер запускается автоматически на порту **45321**.
+The application automatically hosts a local REST server on port **45321**.
 
 **Base URL:** `http://127.0.0.1:45321`
 
-### 📋 Эндпоинты
+### 📋 Endpoints
 
 <details>
-<summary>📂 <b>Работа со всей базой данных</b></summary>
+<summary>📂 <b>Global Data Management</b></summary>
 
 #### `GET /data`
-
-* **Описание:** Получает всю базу данных (сессии + настройки).
+* **Description:** Retrieves the entire database (all sessions and settings).
 
 #### `POST /data/overwrite`
-
-* **Описание:** Полная перезапись всей базы данных.
-* **Body:** Объект `AppData` (см. структуры выше).
-* **Логика:** Rust проверяет валидность JSON. Если всё ок — файл перезаписывается, React обновляет экран.
+* **Description:** Completely overwrites the local database.
+* **Body:** `AppData` object.
+* **Logic:** The Rust backend validates the JSON structure. If valid, the file is overwritten, and the UI is instantly notified to refresh.
 
 #### `DELETE /data/all`
-
-* **Описание:** Удаляет все сессии, обнуляя историю.
+* **Description:** Wipes all work sessions while keeping user settings intact.
 
 </details>
 
 <details>
-<summary>📅 <b>Фильтрация и чтение</b></summary>
+<summary>📅 <b>Filtering & Retrieval</b></summary>
 
 #### `GET /data/day/:date`
-
-* **Параметр:** `:date` (напр. `2024-03-20`).
-* **Ответ:** Массив объектов `WorkSession`.
+* **Parameter:** `:date` (e.g., `2024-03-20`).
+* **Response:** An array of `WorkSession` objects for that specific day.
 
 #### `GET /data/week/:year/:week`
-
-* **Параметры:** Год и порядковый номер недели.
-* **Описание:** Быстрая выборка данных за неделю силами Rust.
+* **Parameters:** Year and ISO week number.
+* **Description:** High-performance filtering performed on the Rust side for dashboard stats.
 
 </details>
 
 <details>
-<summary>📝 <b>Управление сессиями (CUD)</b></summary>
+<summary>📝 <b>Session Management (CRUD)</b></summary>
 
 #### `POST /data/append`
-
-* **Описание:** Добавить/Обновить одну сессию.
-* **Body:** Объект `WorkSession`.
-* **Логика:** Если `id` уже существует — запись обновится. Если нет — добавится новая. Это безопасный способ добавить
-  данные, не перетирая всю базу.
+* **Description:** Add or Update a single session.
+* **Body:** `WorkSession` object.
+* **Logic:** If the `id` exists, the session is updated. If not, it is appended. This is the recommended way to sync external trackers without data loss.
 
 #### `DELETE /data/day/:date`
-
-* **Описание:** Стереть все записи за указанный день.
+* **Description:** Deletes all session entries for the specified date.
 
 #### `DELETE /data/range?start=...&end=...`
-
-* **Параметры:** `start` и `end` (формат `YYYY-MM-DD`).
-* **Описание:** Массовое удаление данных за период.
+* **Query Params:** `start` and `end` (format `YYYY-MM-DD`).
+* **Description:** Mass-deletes data within the specified date range.
 
 </details>
 
 ---
 
-## 🧩 Внутренняя логика синхронизации
+## 🧩 Internal Sync Logic
 
-1. **Backend (Rust/Axum)**: Принимает запрос, валидирует JSON.
-2. **Storage**: Записывает данные в системную папку (на Linux: `~/.local/share/chronoglass/data.json`).
-3. **Event Bus**: Rust шлет сигнал `external-data-update`.
-4. **Frontend (React)**: Ловит сигнал и мгновенно перерисовывает UI. **Никаких перезагрузок страницы.**
+1. **Backend (Rust/Axum)**: Receives the HTTP request and validates the JSON payload.
+2. **Storage**: Commits the data to the system's local app-data directory (e.g., `~/.local/share/chronoglass/data.json` on Linux).
+3. **Event Bus**: The Rust core emits an `external-data-update` event via the Tauri event system.
+4. **Frontend (React)**: Listens for the event and triggers an immediate UI re-render. **No page reloads required.**
 
 ---
 
-## 🎨 Технологический стек
+## 🎨 Tech Stack
 
 * **Frontend**: React 18, TypeScript, Vite 6.
 * **Backend**: Tauri v2, Rust (Axum, Tokio, Chrono).
-* **Styling**: Tailwind CSS + Glassmorphism.
+* **Styling**: Tailwind CSS + Framer Motion (Glassmorphism).
 
 ---
 <div align="center">
-  Создано с ❤️ с использованием <b>pnpm</b> и <b>Rust</b>.
+  Built with ❤️ using <b>pnpm</b> and <b>Rust</b>.
 </div>
