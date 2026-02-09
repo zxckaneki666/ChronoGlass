@@ -1,22 +1,133 @@
-import React, {useState, useEffect, useMemo} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
-    Play, Square, Clock, Settings as SettingsIcon, Plus,
-    Briefcase, Download, Upload, X, Activity, Trash2
+    Activity,
+    Briefcase,
+    Clock,
+    Download,
+    History,
+    Play,
+    Plus,
+    Settings as SettingsIcon,
+    Square,
+    Trash2,
+    Upload,
+    X
 } from './components/Icons';
 import {GlassCard} from './components/GlassCard';
+import {GlassCardOverflow} from './components/GlassCardOverflow.tsx';
 import {api} from './services/storage';
-import {WorkSession, AppSettings, SubActivity} from './types';
+import {AppSettings, SubActivity, WorkSession} from './types';
 import {
     calculateSessionDuration,
+    calculateWeeklyBalance,
     formatDuration,
     formatDurationHuman,
-    getDayKey,
     generateCurrentWeekData,
-    calculateWeeklyBalance
+    getDayKey,
+    getHistoryByWeeks,
 } from './utils';
-import {BarChart, Bar, Tooltip, ResponsiveContainer, Cell, CartesianGrid, XAxis} from 'recharts';
+import {Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis} from 'recharts';
 
 // --- Components ---
+
+const HistoryModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    sessions: WorkSession[];
+    settings: AppSettings;
+}> = ({isOpen, onClose, sessions, settings}) => {
+    if (!isOpen) return null;
+
+    const history = useMemo(() => getHistoryByWeeks(sessions, settings.weeklyHoursTarget), [sessions, settings.weeklyHoursTarget]);
+
+    const formatDateRange = (timestamp: number) => {
+        const start = new Date(timestamp);
+        const end = new Date(timestamp);
+        end.setDate(start.getDate() + 6);
+
+        const opts: Intl.DateTimeFormatOptions = {month: 'short', day: 'numeric'};
+        if (start.getFullYear() !== new Date().getFullYear()) {
+            opts.year = 'numeric';
+        }
+        return `${start.toLocaleDateString('en-US', opts)} - ${end.toLocaleDateString('en-US', opts)}`;
+    };
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="absolute inset-0" onClick={onClose}></div>
+            <GlassCardOverflow
+                className="w-full max-w-2xl p-0 relative z-10 animate-in zoom-in-95 slide-in-from-bottom-5 duration-300 max-h-[85vh]">
+                {/* Header: fixed height */}
+                <div
+                    className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5 flex-shrink-0">
+                    <div>
+                        <h2 className="text-2xl font-semibold text-white">Work History</h2>
+                        <p className="text-white/40 text-sm mt-1">Review your weekly performance over time</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                        <X className="w-6 h-6 text-white/70"/>
+                    </button>
+                </div>
+
+                {/* Content: flex-1 to fill remaining space, overflow-y-auto to scroll, min-h-0 to allow shrinking */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-3 min-h-0">
+                    {history.length === 0 ? (
+                        <div className="text-center py-10 text-white/30">No history available yet.</div>
+                    ) : (
+                        history.map((item) => {
+                            const hours = item.totalMs / (1000 * 60 * 60);
+                            const balanceHours = item.balanceMs / (1000 * 60 * 60);
+                            const isPositive = balanceHours >= 0;
+
+                            return (
+                                <div key={item.weekStart}
+                                     className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
+                                    <div className="flex items-center gap-4">
+                                        <div
+                                            className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/10 group-hover:border-indigo-500/30 transition-colors">
+                                            <CalendarIcon className="w-5 h-5 text-indigo-300"/>
+                                        </div>
+                                        <div>
+                                            <div
+                                                className="text-white font-medium">{formatDateRange(item.weekStart)}</div>
+                                            <div className="text-white/40 text-xs">Week
+                                                target: {settings.weeklyHoursTarget}h
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-right flex items-center gap-6">
+                                        <div>
+                                            <div className="text-white/90 font-mono text-lg">{hours.toFixed(1)}h</div>
+                                            <div className="text-white/30 text-xs">Total</div>
+                                        </div>
+                                        <div
+                                            className={`px-3 py-1.5 rounded-lg border w-20 text-center ${isPositive ? 'bg-green-500/10 border-green-500/20 text-green-300' : 'bg-red-500/10 border-red-500/20 text-red-300'}`}>
+                                            <div
+                                                className="font-bold text-sm">{isPositive ? '+' : ''}{balanceHours.toFixed(1)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </GlassCardOverflow>
+        </div>
+    );
+};
+
+// Helper icon for the modal
+const CalendarIcon = ({className}: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+         strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+        <line x1="16" x2="16" y1="2" y2="6"/>
+        <line x1="8" x2="8" y1="2" y2="6"/>
+        <line x1="3" x2="21" y1="10" y2="10"/>
+    </svg>
+)
 
 const SettingsModal: React.FC<{
     isOpen: boolean;
@@ -42,7 +153,7 @@ const SettingsModal: React.FC<{
                     </button>
                 </div>
 
-                <div className="space-y-6 overflow-y-auto custom-scrollbar pr-2">
+                <div className="space-y-6 overflow-y-auto custom-scrollbar pr-2 flex-1 min-h-0">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-white/60">Weekly Target (Hours)</label>
                         <input
@@ -105,7 +216,10 @@ const App: React.FC = () => {
     const [settings, setSettings] = useState<AppSettings>({weeklyHoursTarget: 40, userName: 'User'});
     const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
     const [elapsedTime, setElapsedTime] = useState(0);
+
+    // Modals
     const [showSettings, setShowSettings] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
 
     // UI State
     const [subActivityName, setSubActivityName] = useState('');
@@ -256,6 +370,10 @@ const App: React.FC = () => {
     // Memoize chart data to prevent re-calculations during timer ticks
     const chartData = useMemo(() => generateCurrentWeekData(sessions), [sessions]);
 
+    // RECALCULATE BALANCE ON EVERY RENDER (to catch timer updates)
+    // We do NOT memoize this tightly because 'sessions' (as objects) might not change,
+    // but we want the 'active session' inside it to count using current time.
+    // Actually, calculateWeeklyBalance uses 'Date.now()' for active sessions, so it returns fresh data.
     const balanceMs = calculateWeeklyBalance(sessions, settings.weeklyHoursTarget);
     const balanceHours = balanceMs / (1000 * 60 * 60);
 
@@ -297,6 +415,13 @@ const App: React.FC = () => {
                 onClear={handleClearHistory}
             />
 
+            <HistoryModal
+                isOpen={showHistory}
+                onClose={() => setShowHistory(false)}
+                sessions={sessions}
+                settings={settings}
+            />
+
             <header data-tauri-drag-region
                     className="flex justify-between items-center cursor-default select-none pt-2">
                 <div className="flex items-center gap-3 pointer-events-none">
@@ -308,10 +433,22 @@ const App: React.FC = () => {
                         ChronoGlass
                     </h1>
                 </div>
-                <button onClick={() => setShowSettings(true)}
-                        className="p-3 rounded-full hover:bg-white/10 transition-colors z-20">
-                    <SettingsIcon className="w-6 h-6 text-white/70"/>
-                </button>
+                <div className="flex items-center gap-2 z-20">
+                    <button
+                        onClick={() => setShowHistory(true)}
+                        className="p-3 rounded-full hover:bg-white/10 transition-colors flex items-center gap-2 text-white/70 hover:text-white group"
+                        title="History"
+                    >
+                        <History className="w-5 h-5 group-hover:scale-110 transition-transform"/>
+                    </button>
+                    <button
+                        onClick={() => setShowSettings(true)}
+                        className="p-3 rounded-full hover:bg-white/10 transition-colors text-white/70 hover:text-white group"
+                        title="Settings"
+                    >
+                        <SettingsIcon className="w-6 h-6 group-hover:rotate-45 transition-transform duration-300"/>
+                    </button>
+                </div>
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -379,8 +516,10 @@ const App: React.FC = () => {
                         <div className="relative z-10">
                             <h3 className="text-white/50 text-xs font-medium uppercase tracking-wide mb-2">Total
                                 Balance</h3>
-                            <div
-                                className={`text-5xl font-medium tracking-tight mb-2 ${balanceHours >= 0 ? 'text-green-200' : 'text-red-200'}`}>
+                            {/* Dynamically sizing text to prevent overflow */}
+                            <div className={`font-medium tracking-tight mb-2 truncate ${
+                                balanceHours.toFixed(1).length > 6 ? 'text-4xl' : 'text-5xl'
+                            } ${balanceHours >= 0 ? 'text-green-200' : 'text-red-200'}`}>
                                 {balanceHours > 0 ? '+' : ''}{balanceHours.toFixed(1)}h
                             </div>
                             <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden mb-2">
@@ -515,11 +654,14 @@ const App: React.FC = () => {
                                     <span className="text-sm text-white/80">Work</span>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-xs text-white/40">
+                                    <div className="text-xs text-white/40 font-mono">
                                         {new Date(session.startTime).toLocaleTimeString([], {
                                             hour: '2-digit',
                                             minute: '2-digit'
-                                        })}
+                                        })} - {session.endTime ? new Date(session.endTime).toLocaleTimeString([], {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    }) : '...'}
                                     </div>
                                     <div className="text-xs text-white/60 font-medium mt-0.5">
                                         {formatDurationHuman(calculateSessionDuration(session))}

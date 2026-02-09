@@ -4,7 +4,6 @@ import {WorkSession} from './types';
 
 /**
  * Generates a consistent Day Key (YYYY-MM-DD) based purely on LOCAL system time.
- * This is the "Source of Truth" for grouping data.
  */
 export const getDayKey = (timestamp: number | Date): string => {
     const d = new Date(timestamp);
@@ -41,24 +40,51 @@ export const formatDurationHuman = (ms: number): string => {
 
 // --- AGGREGATION LOGIC ---
 
-export const calculateWeeklyBalance = (sessions: WorkSession[], weeklyHoursTarget: number): number => {
-    const sessionsByWeek = new Map<string, number>();
+/**
+ * Returns the timestamp of Monday 00:00:00 for the week of the given date.
+ */
+const getMondayTimestamp = (d: Date): number => {
+    const date = new Date(d);
+    const day = date.getDay(); // Sun=0, Mon=1, ...
+    // Calculate difference to get to Monday
+    // If today is Sunday (0), we need to go back 6 days.
+    // If today is Monday (1), we go back 0 days.
+    // If today is Tuesday (2), we go back 1 day.
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
 
+    const monday = new Date(date.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    return monday.getTime();
+}
+
+/**
+ * Calculates the total balance (overtime/undertime) across all history.
+ * STRICTLY includes the current week's target debt.
+ */
+export const calculateWeeklyBalance = (sessions: WorkSession[], weeklyHoursTarget: number): number => {
+    const sessionsByWeek = new Map<number, number>(); // Monday Timestamp -> Total Duration MS
+
+    // 1. Group ALL existing sessions by their week
     sessions.forEach(s => {
         const d = new Date(s.startTime);
-        // Standardize to ISO weeks logic roughly for accumulation
-        const onejan = new Date(d.getFullYear(), 0, 1);
-        const millisecs = d.getTime() - onejan.getTime();
-        const weekIdx = Math.ceil((((millisecs / 86400000) + onejan.getDay() + 1) / 7));
-        const key = `${d.getFullYear()}-W${weekIdx}`;
-
+        const key = getMondayTimestamp(d);
         const dur = calculateSessionDuration(s);
         sessionsByWeek.set(key, (sessionsByWeek.get(key) || 0) + dur);
     });
 
-    let totalBalance = 0;
-    const targetMs = weeklyHoursTarget * 60 * 60 * 1000;
+    // 2. FORCE include the Current Week.
+    // This ensures that as soon as Monday starts, we are in "debt" for the target hours.
+    const currentMondayKey = getMondayTimestamp(new Date());
+    if (!sessionsByWeek.has(currentMondayKey)) {
+        sessionsByWeek.set(currentMondayKey, 0);
+    }
 
+    let totalBalance = 0;
+    // Guard against NaN/Invalid settings
+    const safeTarget = weeklyHoursTarget || 40;
+    const targetMs = safeTarget * 60 * 60 * 1000;
+
+    // 3. Sum up balance for every tracked week + current week
     sessionsByWeek.forEach((duration) => {
         totalBalance += (duration - targetMs);
     });
@@ -67,19 +93,12 @@ export const calculateWeeklyBalance = (sessions: WorkSession[], weeklyHoursTarge
 };
 
 export const generateCurrentWeekData = (sessions: WorkSession[]) => {
-    // Always Mon-Sun labels
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const today = new Date();
 
-    // Calculate Monday of current week
-    // getDay(): 0 = Sun, 1 = Mon ... 6 = Sat
-    const currentDay = today.getDay();
-    // If today is Sun (0), we want to go back 6 days to Mon.
-    // If today is Mon (1), we go back 0 days.
-    const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
-
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - distanceToMonday);
+    // Get Monday of current week
+    const mondayMs = getMondayTimestamp(today);
+    const monday = new Date(mondayMs);
 
     const data = [];
 
@@ -89,13 +108,14 @@ export const generateCurrentWeekData = (sessions: WorkSession[]) => {
         d.setDate(monday.getDate() + i);
         const dayKey = getDayKey(d);
 
+        // Filter sessions strictly by local day key
         const daySessions = sessions.filter(s => getDayKey(s.startTime) === dayKey);
         const totalMs = daySessions.reduce((acc, s) => acc + calculateSessionDuration(s), 0);
 
         const isToday = getDayKey(today) === dayKey;
 
         data.push({
-            name: days[d.getDay()], // This will output Mon, Tue, Wed, Thu, Fri, Sat, Sun sequentially
+            name: days[d.getDay()],
             fullDate: dayKey,
             hours: parseFloat((totalMs / (1000 * 60 * 60)).toFixed(1)),
             isToday: isToday
@@ -103,4 +123,41 @@ export const generateCurrentWeekData = (sessions: WorkSession[]) => {
     }
 
     return data;
+};
+
+export interface WeeklyHistoryItem {
+    weekStart: number;
+    totalMs: number;
+    balanceMs: number;
+}
+
+export const getHistoryByWeeks = (sessions: WorkSession[], weeklyTargetHours: number): WeeklyHistoryItem[] => {
+    const map = new Map<number, number>();
+
+    sessions.forEach(s => {
+        const key = getMondayTimestamp(new Date(s.startTime));
+        const dur = calculateSessionDuration(s);
+        map.set(key, (map.get(key) || 0) + dur);
+    });
+
+    // Ensure current week exists in history view
+    const currentKey = getMondayTimestamp(new Date());
+    if (!map.has(currentKey)) {
+        map.set(currentKey, 0);
+    }
+
+    const safeTarget = weeklyTargetHours || 40;
+    const targetMs = safeTarget * 60 * 60 * 1000;
+
+    const history: WeeklyHistoryItem[] = [];
+    map.forEach((totalMs, weekStart) => {
+        history.push({
+            weekStart,
+            totalMs,
+            balanceMs: totalMs - targetMs
+        });
+    });
+
+    // Sort descending (newest first)
+    return history.sort((a, b) => b.weekStart - a.weekStart);
 };
