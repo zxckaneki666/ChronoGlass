@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, Runtime, Emitter};
+use uuid::Uuid;
 
 // --- СТРУКТУРЫ ДАННЫХ (Дублируют TypeScript) ---
 
@@ -47,6 +48,13 @@ pub struct AppData {
     settings: AppSettings,
 }
 
+#[derive(Deserialize)]
+pub struct StartRequest {
+    title: String,
+    #[serde(rename = "startTime")]
+    start_time: i64,
+}
+
 // --- СЕРВЕР ---
 
 struct AppState<R: Runtime> {
@@ -62,6 +70,7 @@ pub async fn start_server<R: Runtime>(app: AppHandle<R>) {
         .route("/data/day/:date", get(get_day_data::<R>))
         .route("/data/week/:year/:week", get(get_week_data::<R>))
         // Добавление / Изменение
+        .route("/data/start", post(start_new_session::<R>))
         .route("/data/append", post(append_session::<R>))
         .route("/data/overwrite", post(overwrite_all::<R>))
         // Удаление
@@ -142,6 +151,53 @@ async fn clear_range<R: Runtime>(
     data.sessions.retain(|s| s.date < range.start || s.date > range.end);
     match internal_save(&state.app, &data) {
         Ok(_) => StatusCode::OK,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
+
+async fn start_new_session<R: Runtime>(
+    State(state): State<Arc<AppState<R>>>,
+    Json(payload): Json<StartRequest>,
+) -> StatusCode {
+    let mut data = internal_load(&state.app);
+    let now_ms = chrono::Utc::now().timestamp_millis();
+
+    // 1. БЕЗОПАСНОСТЬ: Закрываем все текущие активные сессии, если они есть
+    for s in data.sessions.iter_mut() {
+        if s.end_time.is_none() {
+            s.end_time = Some(now_ms);
+            for sub in s.sub_activities.iter_mut() {
+                if sub.end_time.is_none() {
+                    sub.end_time = Some(now_ms);
+                }
+            }
+        }
+    }
+
+    // 2. Определяем дату из переданного startTime
+    let date_str = match chrono::NaiveDateTime::from_timestamp_millis(payload.start_time) {
+        Some(dt) => dt.date().to_string(),
+        None => return StatusCode::BAD_REQUEST,
+    };
+
+    // 3. Создаем новую сессию "из прошлого"
+    let new_session = WorkSession {
+        id: Uuid::new_v4().to_string(),
+        start_time: payload.start_time,
+        end_time: None, // Она активна!
+        date: date_str,
+        sub_activities: vec![SubActivity {
+            id: Uuid::new_v4().to_string(),
+            title: payload.title,
+            start_time: payload.start_time,
+            end_time: None, // Таск тоже активен!
+        }],
+    };
+
+    data.sessions.push(new_session);
+
+    match internal_save(&state.app, &data) {
+        Ok(_) => StatusCode::CREATED,
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }

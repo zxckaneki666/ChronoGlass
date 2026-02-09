@@ -367,7 +367,7 @@ dependencies = [
 
 [[package]]
 name = "chronoglass"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "chrono",
@@ -378,6 +378,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tokio",
  "tower-http 0.5.2",
+ "uuid",
 ]
 
 [[package]]

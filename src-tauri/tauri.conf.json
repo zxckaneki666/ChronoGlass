@@ -1,5 +1,6 @@
 {
-  "productName": "chronoglass",
+  "productName": "ChronoGlass",
+  "version": "0.3.0",
   "identifier": "com.chronoglass",
   "build": {
     "frontendDist": "../dist",

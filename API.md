@@ -117,8 +117,79 @@ This document provides the absolute, non-omitted documentation for the ChronoGla
 ```
 
 ---
+Here is the addition for your **API.md**, written in the same exhaustive, "no-shortcut" style, set in February 2026.
 
-## 📥 4. POST /data/append
+---
+
+## ⏺️ 4. POST /data/start
+**Description:** Initiates a new work session and an immediate sub-activity starting from a specific timestamp.
+
+**Logic & Safety:**
+1. **Auto-Close:** If there is an already active session (where `endTime` is `null`), the server automatically sets its `endTime` to the current system time to prevent overlapping logs.
+2. **Date Parsing:** The server extracts the `YYYY-MM-DD` string directly from the provided `startTime`.
+3. **Implicit Sub-Activity:** Creating a session via this endpoint automatically creates the first `SubActivity` inside it with the same `startTime` and an `endTime` of `null`.
+
+*   **URL:** `POST http://127.0.0.1:45321/data/start`
+*   **Request Body (Full Example):**
+    *Context: It is 3:50 PM, Feb 9, 2026. You realized you started working at 3:00 PM (1739113200000 ms) and want to log it retroactively.*
+
+```json
+{
+  "title": "Spatial UI Refactoring",
+  "startTime": 1739113200000
+}
+```
+
+*   **Response (201 Created):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "startTime": 1739113200000,
+  "endTime": null,
+  "date": "2026-02-09",
+  "subActivities": [
+    {
+      "id": "af23-bc11-9988-cc77",
+      "title": "Spatial UI Refactoring",
+      "startTime": 1739113200000,
+      "endTime": null
+    }
+  ]
+}
+```
+
+---
+
+## 🛠️ Usage Example: Retroactive Start (Bash)
+
+If you forgot to start your timer 20 minutes ago, you can trigger it via your terminal. This script calculates the timestamp for "20 minutes ago" and sends it to ChronoGlass.
+
+```bash
+# Calculate timestamp for 20 minutes ago in milliseconds
+START_TIME=$(date -d "20 minutes ago" +%s000)
+
+curl -X POST http://127.0.0.1:45321/data/start \
+     -H "Content-Type: application/json" \
+     -d "{
+       \"title\": \"Late Start Log from Terminal\",
+       \"startTime\": $START_TIME
+     }"
+```
+
+---
+
+## 🧠 Business Logic Constraints for /data/start
+
+1.  **State Cleanup:** You do not need to call `DELETE` or `POST /data/append` to stop a running timer before calling `/data/start`. The Rust engine detects any session with `endTime: null`, closes it using the current server time, and then initializes the new requested session.
+2.  **Validation:**
+    *   `title` must be a non-empty string.
+    *   `startTime` must be a valid 13-digit Unix timestamp (milliseconds). If the timestamp is invalid or cannot be parsed into a date, the server returns `400 Bad Request`.
+3.  **UI Feedback:** Upon a successful `201 Created` response, the ChronoGlass desktop window will immediately update. If the `startTime` was in the past, the timer will appear already running with the elapsed time pre-calculated (e.g., if you started it 20 mins ago, the UI will immediately show `00:20:00` and continue ticking).
+4.  **UUID Generation:** The `id` for both the `WorkSession` and the initial `SubActivity` are generated server-side using the `V4 UUID` standard to ensure no collisions with existing data.
+
+---
+
+## 📥 5. POST /data/append
 **Description:** Adds a new session or updates an existing one if the `id` matches.
 
 *   **URL:** `POST http://127.0.0.1:45321/data/append`
@@ -149,7 +220,7 @@ This document provides the absolute, non-omitted documentation for the ChronoGla
 
 ---
 
-## 💾 5. POST /data/overwrite
+## 💾 6. POST /data/overwrite
 **Description:** Destructive write. Replaces the entire local database file.
 
 *   **URL:** `POST http://127.0.0.1:45321/data/overwrite`
@@ -182,7 +253,7 @@ This document provides the absolute, non-omitted documentation for the ChronoGla
 
 ---
 
-## 🗑️ 6. DELETE /data/all
+## 🗑️ 7. DELETE /data/all
 **Description:** Deletes all history.
 
 *   **URL:** `DELETE http://127.0.0.1:45321/data/all`
@@ -201,7 +272,7 @@ This document provides the absolute, non-omitted documentation for the ChronoGla
 
 ---
 
-## 🗑️ 7. DELETE /data/day/:date
+## 🗑️ 8. DELETE /data/day/:date
 **Description:** Deletes all sessions for a specific day.
 
 *   **URL:** `DELETE http://127.0.0.1:45321/data/day/2026-02-09`
@@ -209,7 +280,7 @@ This document provides the absolute, non-omitted documentation for the ChronoGla
 
 ---
 
-## 🗑️ 8. DELETE /data/range?start=...&end=...
+## 🗑️ 9. DELETE /data/range?start=...&end=...
 **Description:** Bulk delete within a specific period.
 
 *   **URL:** `DELETE http://127.0.0.1:45321/data/range?start=2026-02-01&end=2026-02-28`

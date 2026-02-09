@@ -1,8 +1,8 @@
 [package]
 name = "chronoglass"
-version = "0.1.0"
+version = "0.3.0"
 description = "A Vision Pro style time tracker"
-authors = ["you"]
+authors = ["zxckaneki666"]
 edition = "2021"
 
 [build-dependencies]
@@ -17,3 +17,4 @@ axum = "0.7"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.5", features = ["cors"] }
 chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.20", features = ["v4", "serde"] }
